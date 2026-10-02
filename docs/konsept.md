@@ -1,7 +1,7 @@
 # DJI Mini 4 Pro: Jestle Kontrol ve Otonom Takip Konsepti
 
 > **Durum:** Teorik / konsept aşaması. Henüz kod yok.
-> **Son güncelleme:** 2026-10-01
+> **Son güncelleme:** 2026-10-02
 >
 > Bu doküman, proje fikrini şekillendiren soru-cevap konuşmalarında alınan kararların
 > toplandığı yerdir. Her yeni karar buraya ve en alttaki **Karar Günlüğü**'ne işlenir.
@@ -11,7 +11,7 @@
 ## 1. Amaç
 
 Kullanıcı hareket/aksiyon halindeyken drone'un onu **otomatik takip etmesi** ve kullanıcının
-drone'a **telefona/kumandaya dokunmadan, vücut ve el jestleriyle** komut verebilmesi.
+drone'a **telefona/kumandaya dokunmadan, vücut jestleriyle** komut verebilmesi.
 
 - Komut verilirken kullanıcı **sabit durur**. Aksiyon sırasında komut verilmez, sadece takip edilir.
 - Güvenlik en yüksek önceliktir: drone'un mevcut sensörlerinden mümkün olan en yüksek
@@ -28,7 +28,7 @@ drone'a **telefona/kumandaya dokunmadan, vücut ve el jestleriyle** komut verebi
 | Telefon | Android |
 | SDK | DJI Mobile SDK v5 (MSDK) |
 | Dil | Kotlin |
-| Görüntü işleme | MediaPipe (Pose Landmarker, Hand Landmarker / Gesture Recognizer) |
+| Görüntü işleme | MediaPipe Pose Landmarker (v1). El modelleri v2+ için ayrıldı. |
 | Geri bildirim | Bluetooth kulaklık (sesli bildirim / TTS) |
 | Akıllı saat | Şimdilik **kapsam dışı** (Wear OS ileride ek komut kanalı olabilir) |
 
@@ -63,7 +63,7 @@ Drone kamerası ──(O4)──► RC-N2 ──(USB)──► Android telefon
                          ┌────────────────────┼─────────────────────┐
                          ▼                    ▼                     ▼
                    Jest tanıma          Görsel takip          Telefon GPS
-                   (MediaPipe)          (kişi konumu)         (kullanıcı konumu)
+                   (MediaPipe Pose)          (kişi konumu)         (kullanıcı konumu)
                          │                    │                     │
                          └──────► İstenen hız / gimbal komutu ◄─────┘
                                               │
@@ -97,58 +97,103 @@ Güvenlik valfi  >  ACİL DURDUR jesti  >  Diğer jestler  >  Takip
 
 ## 5. Komut Sistemi (Jestler)
 
-### 5.1 Komut akışı
+### 5.1 Tasarım ilkeleri
+
+1. **Tamamı vücut jesti.** Komut anında drone 10-20 m uzakta olabilir. Bu mesafede parmak jestleri okunmaz, kol pozisyonları okunur.
+   İlk sürümde **sadece MediaPipe Pose** kullanılır, el modeline gerek yoktur.
+2. **Sabit pozlar.** Pozlar belirli bir süre tutulur. Tek hareketli jest orbit ("kement") jestidir.
+3. **Kullanıcının bakış açısı.** Drone kullanıcıya baktığı için görüntü aynalanmıştır. Sistem bunu ters çevirir: "sağ kol" her zaman **kullanıcının sağı** demektir.
+4. **Tek kollu jestlerde diğer kol aşağıda olmalı.** Kombinasyonlarla karışmayı önler.
+5. **Risk derecelendirmesi.** Zararsız komutlar (fotoğraf) kolay tetiklenir, riskli komutlar (iniş) onay ister.
+6. **Operatör kilidi.** Uyandırma jestini yapan kişi oturumun sahibidir. Kadrajdaki diğer kişilerin jestleri yok sayılır.
+
+### 5.2 "Y" ve "X" dili
+
+| Jest | Anlam | Duruma göre davranış |
+|---|---|---|
+| **Y**: iki kol çapraz yukarı | "Evet / dikkat" | Takipte **uyandır**, onay beklerken **onayla**, durdurulmuşken **takibe devam** |
+| **X**: kollar göğüste çapraz | "Hayır / dur" | Her durumda **acil dur (havada kal)** ve **iptal** |
+
+### 5.3 Durum akışı
 
 ```
-[Serbest mod] ──"uyandırma" jesti (1 sn tut)──► [Komut modu]
-                                                   │
-                                     jest algılandı + 1 sn tutuldu
-                                                   │
-                                   Sesli geri bildirim: "Komut: X" ──► uygula
-                                                   │
-                                  5-10 sn komut yoksa ──► [Serbest mod]
+          Y              komut              riskli komut
+[TAKİP] ────► [KOMUT MODU] ────► uygula    ────► [ONAY BEKLE] ──Y──► uygula
+   ▲               │  ▲                              │
+   │        5-10 sn│  └── zincirleme komut            └──X / 3 sn──► iptal
+   │        komutsuz
+   └───────────────┘
 
-[ACİL DURDUR jesti] → her modda geçerli → drone havada asılı kalır
+Her durumdan ──X──► [DURDURULDU: havada asılı] ──Y──► [TAKİP]
 ```
 
-### 5.2 Kurallar
+- Komut modunda jestler arka arkaya verilebilir (ör. 3 kez "T" yapılırsa mesafe +6 m), her seferinde uyandırma gerekmez.
+- 5-10 sn jest gelmezse takip moduna dönülür.
 
-- **Uyandırma jesti + tutma süresi:** Aksiyon sırasındaki rastgele kol hareketleri komut sayılmaz.
-- **Operatör kilidi:** Uyandırma jestini yapan kişi oturumun sahibidir. Kadrajdaki diğer kişilerin jestleri yok sayılır.
-- **İki adımlı onay:** Geri dönüşü olan komutlar (ör. iniş) "komut, ardından onay jesti" şeklinde verilir.
-- **Tek adımlı güvenli komutlar:** "Dur / havada kal" anında çalışır, onay istemez.
-- **Mesafe stratejisi:** Uzakta vücut pozu jestleri (10-15 m+), yakında el/parmak jestleri kullanılır.
-  Önce vücut pozu modeli kişiyi bulur, sonra **el bölgesi kırpılıp** el modeline verilir. Bu sayede el jestlerinin okunabildiği mesafe artar.
+### 5.4 Jest seti (onaylandı)
 
-### 5.3 Komut seti (taslak, tümü kapsamda)
+**Sistem**
+
+| Jest | Komut | Tutma süresi |
+|---|---|---|
+| İki kol çapraz yukarı **"Y"** | Uyandır / Onay / Takibe devam | 1 sn |
+| Kollar göğüste çapraz **"X"** | **Acil dur (havada kal) / İptal** | 0,5 sn, her zaman aktif |
+
+**Hareket ve takip ayarları** (kol, drone'un gitmesi istenen yönü gösterir)
+
+| Jest | Komut | Tutma süresi |
+|---|---|---|
+| Sağ kol yana yatay | Sağa kay (takip açısı +15°) | 1 sn |
+| Sol kol yana yatay | Sola kay (takip açısı −15°) | 1 sn |
+| Tek kol düz yukarı | Yüksel (takip irtifası +2 m) | 1 sn |
+| Tek kol yana-aşağı çapraz (~45°) | Alçal (takip irtifası −2 m) | 1 sn |
+| İki el omuzlarda ("bana gel") | Yaklaş (takip mesafesi −2 m) | 1 sn |
+| **T pozu** (iki kol yana yatay, "alan aç") | Uzaklaş (takip mesafesi +2 m) | 1 sn |
+| Kol başın üstünde daire ("kement") | Orbit: sağ kolla saat yönünde, sol kolla tersine | 1 tam tur |
+
+**Kamera**
 
 | Jest | Komut | Not |
 |---|---|---|
-| İki kol yukarı "Y" | Uyandır / komut modu | 1 sn tut |
-| Kollar göğüste "X" | **ACİL: havada kal** | Her zaman aktif, uyandırma gerekmez |
-| Tek kol sağa / sola | O yöne kay / etrafımda dön (takip açısını değiştir) | |
-| Avuç ileri, itme | Uzaklaş (**takip mesafesini artır**) | |
-| Avuç kendine, çekme | Yaklaş (**takip mesafesini azalt**) | |
-| El yukarı / aşağı | Yüksel / alçal (**takip irtifasını değiştir**) | |
-| Başparmak yukarı | Onay | Kritik komutlar için |
-| _Belirlenecek_ | İniş | İki adımlı onay |
-| _Belirlenecek_ | Kayıt başlat / durdur | Kamera komutu |
-| _Belirlenecek_ | Fotoğraf çek | Kamera komutu |
-| _Belirlenecek_ | Orbit (etrafımda tam tur) | |
+| Eller belde | Fotoğraf | 1 sn. Kulaklıkta **3 sn geri sayım** ("3-2-1"), sonra çekim. Kullanıcı geri sayımda serbestçe poz verir. |
+| İki el başın üstünde ("çatı") | Kayıt başlat / durdur | 1 sn. Sesli durum bildirimi |
 
-### 5.4 Takip ayarlarının jestle değiştirilmesi
+**Kritik**
 
-Takip mesafesi, irtifa ve açı **sabit değildir**, jestlerle ayarlanır:
+| Jest | Komut | Not |
+|---|---|---|
+| **Çömel** (diz bük) | İniş | İki adımlı: çömel, ardından "İniş onaylansın mı?" sorusuna **Y**. 3 sn içinde onay yoksa iptal. |
 
-- Yaklaş/uzaklaş, yüksel/alçal ve sağa/sola jestleri takip modundayken **takip ofsetini** değiştirir.
-- Her jest bir adım uygular (öneri: ±2 m / ±15°).
+**İniş davranışı:** Drone **bulunduğu yere dikey olarak** iner. Aşağı sensörler zemini kontrol eder.
+Zeminin uygunluğundan kullanıcı sorumludur.
+
+### 5.5 Takip ayarlarının jestle değiştirilmesi
+
+- Takip mesafesi, irtifa ve açı sabit değildir, jestlerle ayarlanır (bkz. §5.4).
+- Adımlar: **±2 m** (mesafe, irtifa), **±15°** (açı).
 - Ayarlar güvenli sınırlar içinde tutulur (öneri: min. mesafe 4 m, min. irtifa 3 m; kesin değerler açık soru).
 - Her değişiklik sesli olarak doğrulanır ("Mesafe 10 metre").
 
-### 5.5 Geri bildirim
+### 5.6 Karışabilecek jest çiftleri (test listesi)
+
+| Çift | Neden karışabilir | Ayırt edici özellik |
+|---|---|---|
+| X ↔ Yaklaş | İkisinde de eller omuz hizasında | X'te bilekler **karşı** omuzda, Yaklaş'ta **kendi** omzunda |
+| Y ↔ Kayıt | İkisinde de kollar yukarıda | Y'de dirsekler düz, Kayıt'ta bükük ve bilekler başa yakın |
+| Alçal ↔ Rahat duruş | Kol aşağıda | Alçal'da kol gövdeden belirgin şekilde açık (~45°) |
+| Fotoğraf ↔ Dinlenme pozu | Eller belde doğal bir duruş | Sadece komut modunda geçerli. Yanlış tetiklense de zararsız. |
+
+Bu çiftler, test yol haritasındaki "kayıtlı videolarla jest geliştirme" aşamasında özellikle denenir.
+
+### 5.7 Geri bildirim
 
 - **Birincil:** Bluetooth kulaklıktan sesli bildirim.
 - **Yedek:** Drone'un "onay hareketi" (ör. küçük sağ-sol yaw salınımı).
+
+### 5.8 İleride (v2+)
+
+- Yakın mesafede el/parmak jestleri: Önce vücut pozu kişiyi bulur, sonra el bölgesi kırpılıp el modeline verilir.
+- Wear OS saat ile ek komut kanalı.
 
 ---
 
@@ -253,7 +298,12 @@ Mümkün değilse bekler ve haber verir.
 | Durum | Mesaj |
 |---|---|
 | Komut alındı | "Komut: {komut}" |
-| Ayar değişti | "Mesafe {x} metre" / "İrtifa {x} metre" |
+| Ayar değişti | "Mesafe {x} metre" / "İrtifa {x} metre" / "Açı {x} derece" |
+| Fotoğraf | "3, 2, 1" + deklanşör sesi |
+| Kayıt | "Kayıt başladı" / "Kayıt durdu" |
+| İniş onayı | "İniş onaylansın mı?" → "İniyorum" / "İniş iptal" |
+| Acil dur | "Durdum" |
+| Takibe devam | "Takibe devam" |
 | Engel, tırmanma başladı | "Engel var, tırmanıyorum" |
 | Engel aşıldı | "Engel aşıldı, iniyorum" |
 | Görsel takip kayıp | "Seni göremiyorum, GPS ile geliyorum" |
@@ -305,8 +355,9 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 ## 12. Açık Sorular
 
 - [ ] Varsayılan takip mesafesi / irtifa / açı ve min.-maks. sınırlar
-- [ ] İniş, kayıt başlat/durdur, fotoğraf ve orbit için jest atamaları
-- [ ] Jest ayar adımları (±2 m / ±15° önerisi kesinleşmeli)
+- [x] ~~İniş, kayıt başlat/durdur, fotoğraf ve orbit için jest atamaları~~ (bkz. §5.4)
+- [x] ~~Jest ayar adımları~~ (±2 m / ±15°)
+- [ ] Orbit yarıçapı ve hızı
 - [ ] Tırmanma için proje irtifa limiti (+30 m önerisi)
 - [ ] Sesli bildirim dili ve detay seviyesi
 - [ ] Batarya eşikleri (takibi bitirme / eve dönüş)
@@ -328,6 +379,11 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | 2026-10-01 | Güvenlik: **Seçenek A** (kendi güvenlik valfimiz). B modu kabul edilebilir yedek. |
 | 2026-10-01 | Yol tamamen kapanırsa: **tırmanarak aşma**. Mümkün değilse bekle ve haber ver. |
 | 2026-10-01 | Takip mesafesi / irtifa / açı **jestlerle ayarlanabilir** |
+| 2026-10-02 | Jest seti onaylandı (§5.4): tamamı vücut jesti, v1'de sadece MediaPipe Pose |
+| 2026-10-02 | "Y" = evet/uyandır/devam, "X" = acil dur/iptal. Başparmak ve avuç jestleri çıkarıldı. |
+| 2026-10-02 | Ayar adımları: ±2 m (mesafe, irtifa), ±15° (açı) |
+| 2026-10-02 | İniş: çömel + Y onayı, drone **bulunduğu yere** iner |
+| 2026-10-02 | Fotoğraf: eller belde, **3 sn sesli geri sayım** |
 
 ---
 
