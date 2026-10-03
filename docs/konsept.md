@@ -49,7 +49,7 @@ Kullanım sırasında telefon + RC-N2 kullanıcının üzerinde taşınır (gö�
 
 **Sonuç:** Proje teknik olarak mümkün. En büyük risk, kendi uygulamamızla uçarken DJI'ın
 otomatik engelden kaçınmasının devrede olmaması. Bu yüzden kendi güvenlik katmanımızı
-yazıyoruz (bkz. §7).
+yazıyoruz (bkz. §8).
 
 ---
 
@@ -200,7 +200,7 @@ Takip mesafesi, irtifa ve açı jestlerle ayarlanır (bkz. §5.4). Her değişik
 - Drone ile kullanıcı arasındaki **çapraz mesafe ≤ 18 m**.
 - **Kamera eğimi ≤ 45°**, yani irtifa mesafeden fazla olamaz. Çok tepeden bakınca kollar gövdeyle üst üste biner.
 - Bir jest bu sınırları ihlal edecekse uygulanmaz, sebebi sesli söylenir (ör. 4 m mesafede "yüksel" → "Önce uzaklaş").
-- Engel aşma manevrası (§8) sırasındaki geçici irtifa artışı bu kurallardan muaftır, o sırada jest beklenmez.
+- Engel aşma manevrası (§9) sırasındaki geçici irtifa artışı bu kurallardan muaftır, o sırada jest beklenmez.
 
 ### 5.6 "Drone'a dön" kuralı
 
@@ -248,7 +248,72 @@ Bu çiftler, test yol haritasındaki "kayıtlı videolarla jest geliştirme" aş
 
 ---
 
-## 6. Takip
+## 6. Oturum Akışı (onaylandı)
+
+```
+[1. HAZIRLIK] ──► [2. KALKIŞ] ──► [3. OPERATÖR KİLİDİ] ──► [4. TAKİP] ──► [5. OTURUM SONU]
+  telefon elde     telefon elde     telefon çantada          normal akış
+```
+
+### 6.1 Hazırlık: otomatik uçuş öncesi kontrol listesi
+
+Uygulama açılınca (telefon + RC-N2 + drone bağlıyken) kontroller otomatik yapılır, sonuç ekranda ve sesli bildirilir.
+
+| Kontrol | Başarısızsa |
+|---|---|
+| Drone GPS'i ve ev noktası kaydı | ⛔ **Kalkış yok** (takip ve eve dönüş için şart) |
+| Drone pili **≥ %40** | ⛔ Kalkış yok |
+| DJI sistem durumu (pusula, IMU, uçuşa yasak bölge) | ⛔ Kalkış yok, DJI'ın uyarısı okunur |
+| Engel sensörü verisi geliyor mu? | ⚠️ "B modunda devam edilsin mi?" sorulur, karar kullanıcının |
+| Telefon GPS'i | ⚠️ Uyarı (GPS yedeği çalışmaz) |
+| Bluetooth kulaklık | ⚠️ Uyarı, "Kulaklık testi" sesi çalınır |
+| Telefon pili, SD kart alanı | ⚠️ Uyarı |
+| Işık seviyesi | ⚠️ "Düşük ışık, sensörler kısıtlı" |
+
+⛔ = güvenlik şartı, ⚠️ = konfor / yedek.
+
+### 6.2 Kalkış: ekrandaki butonla
+
+- Kalkış **ekrandaki "kaydırarak kalk" butonuyla** yapılır, jestle yapılmaz.
+  - Telefon bu anda zaten elde.
+  - Yerdeki drone kamerası jest okumak için kötü bir açıda.
+  - Kazara kalkış riski ortadan kalkar.
+- Akış:
+  1. Kaydırarak kalk. Drone **3 m'ye yükselir ve havada asılı kalır.**
+  2. "Kalkış tamam. Telefonu kaldır, karşıma geç, Y yap."
+  3. Kullanıcı telefonu çantaya koyar, drone bu sırada sadece bekler.
+
+### 6.3 Operatör kilidi
+
+- Kullanıcı drone'un **5-8 m önüne geçer**, ona döner ve **Y'yi 2 sn tutar.** İlk kilit, yanlış kişiye kilitlenmemek için normal Y'den (1 sn) uzundur.
+- Bu sırada **görünüm profili** çıkarılır: üst/alt kıyafet renkleri, boy oranı, telefon GPS'iyle konum eşleşmesi.
+- "Seni tanıdım, takip başlıyor" anonsunun ardından drone varsayılan pozisyona geçer (8 m, 5 m, +30°).
+- **Kilit kurulamazsa:** 20 sn'de bir hatırlatma yapılır. **2 dakika** içinde Y gelmezse "Operatör yok, iniyorum" denir ve drone kalkış noktasına iner.
+
+### 6.4 Oturum sonu
+
+- İniş sonrası "Oturum bitti" anonsu ve özet: uçuş süresi, video/fotoğraf sayısı.
+- **Pil değişimi:** Görünüm profili gün boyu hatırlanır. Yeni kalkışta Y yine gerekir ama tanıma anında olur.
+
+### 6.5 Telefonun çantada çalışması
+
+- **Ekran kapalı çalışma:** Uygulama Android "ön plan servisi" olarak çalışır. Video çözme ve MediaPipe'ın ekran kapalıyken kesintisiz çalıştığı test edilecek.
+- **Isınma:** Video çözme ve yapay zekâ işlemi telefonu ısıtır, ısınan telefon yavaşlar ve gecikme artar.
+  - Uygulama telefon sıcaklığını izler. Isınınca önce analiz hızını düşürür (ör. 30 → 15 FPS).
+  - Kritik seviyede "Telefon ısındı" uyarısı verilir.
+  - Hava alan bir göğüs çantası önerilir.
+
+### 6.6 Jest antrenman modu
+
+Drone olmadan, **telefonun ön kamerasıyla** çalışan bir mod. Kullanıcı jestleri yapar, ekranda
+"Algılandı: Yaklaş ✅" gibi geri bildirim görür.
+
+- Sahaya çıkmadan jestleri öğrenmeyi sağlar.
+- Geliştirme sırasında jest tanıma kurallarını drone uçurmadan test etmeyi sağlar (bkz. yol haritası, Aşama 2).
+
+---
+
+## 7. Takip
 
 - **Birincil:** Drone kamera görüntüsünde operatörün tespiti, ardından drone ve gimbal ile kişiyi kadraj merkezinde tutma (PID kontrol).
 - **Yedek:** Kullanıcının üzerindeki **telefonun GPS konumu** (~3-5 m doğruluk). Görsel takip kaybolduğunda kaba takip sağlar.
@@ -258,18 +323,18 @@ Bu çiftler, test yol haritasındaki "kayıtlı videolarla jest geliştirme" aş
 
 ---
 
-## 7. Güvenlik: Seçenek A (Kendi Güvenlik Valfimiz)
+## 8. Güvenlik: Seçenek A (Kendi Güvenlik Valfimiz)
 
 **Karar:** Ana yol Seçenek A. Sensör verisi alınamazsa Seçenek B'ye (açık alan, yüksek irtifa,
 düşük hız) düşülür. B kabul edilebilir ama tercih edilmeyen bir yedek.
 
-### 7.1 Çalışma prensibi
+### 8.1 Çalışma prensibi
 
 Takip ve jest modülleri drone'a doğrudan komut göndermez. Her komut, saniyede 10-20 kez
 çalışan **güvenlik valfinden** geçer. Valfin sorusu şu:
 _"Bu yöne bu hızla gidersem, gerekirse zamanında durabilir miyim?"_
 
-### 7.2 Durma mesafesine göre hız limiti
+### 8.2 Durma mesafesine göre hız limiti
 
 Gecikme (~0,3 sn) ve fren kabiliyeti hesaba katılır. Güvenlik payı 2 m için örnek:
 
@@ -280,28 +345,28 @@ Gecikme (~0,3 sn) ve fren kabiliyeti hesaba katılır. Güvenlik payı 2 m için
 | 3 m | ~1,5 m/s |
 | ≤ 2 m | **0, o yöne hareket yasak** |
 
-### 7.3 Yönsel kesme
+### 8.3 Yönsel kesme
 
 Sadece engele doğru olan hız bileşeni kısılır, diğer yönlerdeki hareket serbesttir.
 Böylece drone engelin yanından **kayarak** basit bir kaçınma yapar.
 
-### 7.4 Veri tazeliği bekçisi
+### 8.4 Veri tazeliği bekçisi
 
 Sensör verisi 200-300 ms'den eskiyse drone hover'a geçer ve sesli uyarı verilir.
 
-### 7.5 Kademeli güvenli mod (A'dan B'ye)
+### 8.5 Kademeli güvenli mod (A'dan B'ye)
 
 Sensörler uzun süre veri vermezse (ör. düşük ışık) sistem otomatik olarak B moduna geçer:
 hız limiti düşer, takip yalnızca belirlenen minimum irtifanın üstünde sürer. Durum sesli bildirilir.
 
-### 7.6 Bilinen kör noktalar
+### 8.6 Bilinen kör noktalar
 
-- **Düşük ışık / karanlık:** Görüş sensörleri çalışmaz (bunu 7.4 ve 7.5 yakalar).
+- **Düşük ışık / karanlık:** Görüş sensörleri çalışmaz (bunu §8.4 ve §8.5 yakalar).
 - **İnce dallar, teller, cam:** Geç algılanır ya da hiç algılanmaz. Güvenlik payları yüksek tutulur.
 - **Takipte kamera yönü:** Kamera operatöre bakar, drone çoğunlukla geri geri uçar. Ana kamera çarpma yönünü görmez, bu yüzden görsel engel tespiti için ana kameraya güvenilmez.
 - **DJI'ın kendi freni:** Virtual Stick'te Mini 4 Pro için çalışıp çalışmadığı test edilecek. Çalışıyorsa ikinci emniyet olur, ama tasarım buna **dayanmaz**.
 
-### 7.7 Batarya (onaylandı)
+### 8.7 Batarya (onaylandı)
 
 | Pil seviyesi | Davranış | Sesli bildirim |
 |---|---|---|
@@ -313,14 +378,14 @@ hız limiti düşer, takip yalnızca belirlenen minimum irtifanın üstünde sü
   (kullanıcı oradan kilometrelerce uzaklaşmış olabilir) hem pili hem kullanıcıyı boşa yorar.
   İniş, onaylanmış iniş davranışıyla aynıdır (§5.4): olduğu yere dikey iniş.
 - **X ile iptal:** Zemin uygun değilse (su, yol vb.) X jesti inişi durdurur, drone havada kalır.
-  Kullanıcı kumandayı alıp elle indirir (bkz. §7.10). DJI'ın kritik pil inişi yine de devrededir.
+  Kullanıcı kumandayı alıp elle indirir (bkz. §8.10). DJI'ın kritik pil inişi yine de devrededir.
 - **Dinamik ev noktası:** DJI'ın ev noktası sürekli kumandanın, yani kullanıcının konumuna güncellenir.
   Sinyal kaybında DJI'ın kendi RTH'si de böylece kullanıcıya döner. _(MSDK desteği test ile doğrulanacak.)_
 - **DJI ile çakışma:** DJI'ın kendi "kritik pil zorunlu iniş" eşiği %10'a çok yakın olabilir.
   Testte bu eşik okunur. Gerekirse bizim eşiğimiz DJI eşiğinin **+%3 üstüne** çekilir, böylece iniş kontrolü bizde kalır.
-- **Rüzgârda** eşikler +%5 kayar (§7.8).
+- **Rüzgârda** eşikler +%5 kayar (§8.8).
 
-### 7.8 Rüzgâr
+### 8.8 Rüzgâr
 
 DJI'ın rüzgâr uyarı seviyesi okunur _(MSDK'dan okunabildiği test ile doğrulanacak)_. Yedek olarak drone'un
 havada sabit dururken yaptığı eğim açısından tahmin yapılır.
@@ -333,7 +398,7 @@ havada sabit dururken yaptığı eğim açısından tahmin yapılır.
 - Otomatik iniş yapılmaz, çünkü güçlü rüzgârda kontrolsüz iniş daha riskli olabilir. Kararı kullanıcı çömel + Y ile verir.
 - Gerekçe: 249 g gövde rüzgârdan çok etkilenir, rüzgâr da yükseldikçe ve açıklık arttıkça güçlenir.
 
-### 7.9 Kalabalık
+### 8.9 Kalabalık
 
 Kadrajdaki kişi sayısı sayılır (MediaPipe çoklu poz / kişi tespiti).
 
@@ -345,7 +410,7 @@ Kadrajdaki kişi sayısı sayılır (MediaPipe çoklu poz / kişi tespiti).
 - **Sınır:** Ana kamera kullanıcıya baktığı için drone'un **altındaki** insanları göremez. Kalabalık üzerinde uçmamak,
   yasal olarak da kullanıcının sorumluluğundadır (SHGM).
 
-### 7.10 Kumandayla devralma
+### 8.10 Kumandayla devralma
 
 Her an, her durumda **kumanda öncelikli olmalıdır.** Kullanıcı RC-N2'deki duraklatma (fren) düğmesine
 bastığında Virtual Stick modundan çıkılır ve kontrol tamamen elle uçuşa geçer.
@@ -353,12 +418,12 @@ _(Mini 4 Pro'da bu davranış test ile doğrulanacak.)_
 
 ---
 
-## 8. Engel Aşma: Tırmanma Manevrası
+## 9. Engel Aşma: Tırmanma Manevrası
 
 **Karar:** Takip yolu tamamen kapanırsa drone engelin **üstünden tırmanarak** aşar.
 Mümkün değilse bekler ve haber verir.
 
-### 8.1 Durum makinesi
+### 9.1 Durum makinesi
 
 ```
 [TAKİP] ──engel: yol kapalı + yana kayarak aşılamıyor──► [KONTROL]
@@ -378,26 +443,26 @@ Mümkün değilse bekler ve haber verir.
                                                           [TAKİP]
 ```
 
-### 8.2 Ön koşullar (hepsi sağlanmalı)
+### 9.2 Ön koşullar (hepsi sağlanmalı)
 
 - Yukarı sensör açık (ağaç, köprü altı ya da kapalı alanda tırmanma yok)
 - İrtifa payı var: manevranın başladığı irtifanın en fazla **+50 m** üstüne çıkılır (orta rüzgârda +20 m), kalkışa göre 120 m sınırı aşılmaz
 - Sensör verisi taze ve ışık yeterli
 - Pil **en az %30** (50 m tırmanma ve iniş birkaç dakika sürer ve pilin ~%7-10'unu tüketir)
-- Rüzgâr "güçlü" seviyede değil (§7.8)
+- Rüzgâr "güçlü" seviyede değil (§8.8)
 
-### 8.3 Manevra adımları
+### 9.3 Manevra adımları
 
 1. **Tırman:** Yatay hareket durur, yaklaşık 1 m/s ile yükselinir. Ön taraf "açık" okunduktan sonra **+3-5 m ek pay** tırmanılır, çünkü sensörlerin dikey görüş açısı sınırlı ve ağaç tepeleri düzensiz.
 2. **Geç:** Yavaş ileri hareket edilir. Aşağı sensör engel gösterdiği sürece irtifa korunur. Gimbal aşağı eğilerek operatör kadrajda tutulmaya çalışılır.
 3. **İn:** Aşağı ve yatay sensörler temizse takip irtifasına **daha da yavaş** inilir. İniş, tırmanmadan daha riskli bir aşamadır.
-4. Bu sırada görsel temas kaybolursa **GPS yedeği** devreye girer (bkz. §6).
+4. Bu sırada görsel temas kaybolursa **GPS yedeği** devreye girer (bkz. §7).
 
 ---
 
-## 9. Sesli Bildirimler
+## 10. Sesli Bildirimler
 
-### 9.1 Ses politikası
+### 10.1 Ses politikası
 
 - **Dil:** Türkçe. Android'in çevrimdışı Türkçe TTS sesi kullanılır, internet gerekmez.
 - **Kısa:** Mesajlar 2-4 kelimedir.
@@ -416,7 +481,7 @@ Mümkün değilse bekler ve haber verir.
 - **Müzik:** Kullanıcı müzik dinliyorsa bildirim sırasında müziğin sesi kısılır (Android audio focus / ducking).
 - **Detay seviyesi:** v1'de tek seviye ("sade"). Ayarlanabilir detay v2+.
 
-### 9.2 Mesajlar
+### 10.2 Mesajlar
 
 | Durum | Mesaj |
 |---|---|
@@ -447,14 +512,14 @@ Mümkün değilse bekler ve haber verir.
 
 ---
 
-## 10. Geliştirme ve Test Yol Haritası
+## 11. Geliştirme ve Test Yol Haritası
 
 Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projenin yolunu belirler.**
 
 | # | Aşama | Risk | Amaç |
 |---|---|---|---|
 | 1 | **Kader testi: yerde sensör verisi** (motorlar kapalı) | Yok | PerceptionManager, Mini 4 Pro'da engel mesafesi veriyor mu? Drone'un etrafında kartonla dolaşılır. |
-| 2 | Jest tanımayı **kayıtlı videolarda** geliştirme | Yok | DJI Fly ile çekilmiş jest videoları üzerinde MediaPipe kurallarının ayarlanması |
+| 2 | Jest tanıma: **antrenman modu** ve **kayıtlı videolar** | Yok | Önce telefonun ön kamerasıyla (§6.6), sonra DJI Fly ile çekilmiş jest videolarıyla MediaPipe kurallarının ayarlanması |
 | 3 | Valf simülasyonu | Yok | Kaydedilmiş sensör verisiyle valf mantığını masa başında test |
 | 4 | Yavaş uçuşta fren testi | Düşük | Açık alanda ~1 m/s ile karton kutuya: valf durduruyor mu? DJI freni devrede mi? |
 | 5 | Canlı jest tanıma (uçuşsuz komut) | Düşük | Canlı yayında jestler algılanıp sadece ekrana/kulaklığa yazılır |
@@ -469,34 +534,35 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 
 ---
 
-## 11. Riskler
+## 12. Riskler
 
 | Risk | Etki | Önlem |
 |---|---|---|
 | Mini 4 Pro, SDK'ya engel verisi vermiyor | Yüksek | Aşama 1'de erken tespit, B moduna düşme |
-| Virtual Stick'te DJI freni yok | Yüksek | Kendi valfimiz (§7) |
+| Virtual Stick'te DJI freni yok | Yüksek | Kendi valfimiz (§8) |
 | Jest yanlış algılama | Orta | Uyandırma jesti, tutma süresi, iki adımlı onay |
 | Kadrajda birden fazla kişi | Orta | Operatör kilidi, re-ID |
 | Düşük ışıkta sensör körlüğü | Orta | Veri tazeliği bekçisi, B moduna otomatik geçiş |
 | İnce dal / tel | Orta | Yüksek güvenlik payı, tırmanmada ek pay |
 | ~200-300 ms gecikme | Düşük-Orta | Hız limitleri |
-| Rüzgâr (249 g gövde) | Orta | Seviyeye göre kısıtlı mod, pil eşiklerinin kayması (§7.8) |
-| Yasal: görüş hattı (SHGM), kalabalık üstü uçuş | Orta | Kullanım kuralları, kalabalık modu (§7.9) |
-| DJI kritik pil eşiğiyle çakışma | Orta | Testte eşiği okuyup bizimkini üstüne çekmek (§7.7) |
+| Rüzgâr (249 g gövde) | Orta | Seviyeye göre kısıtlı mod, pil eşiklerinin kayması (§8.8) |
+| Yasal: görüş hattı (SHGM), kalabalık üstü uçuş | Orta | Kullanım kuralları, kalabalık modu (§8.9) |
+| Telefonun ısınması / ekran kapalıyken kısıtlanması | Orta | Ön plan servisi, sıcaklık izleme, analiz hızını düşürme (§6.5) |
+| DJI kritik pil eşiğiyle çakışma | Orta | Testte eşiği okuyup bizimkini üstüne çekmek (§8.7) |
 
 ---
 
-## 12. Açık Sorular
+## 13. Açık Sorular
 
 - [x] ~~Varsayılan takip mesafesi / irtifa / açı ve min.-maks. sınırlar~~ (bkz. §5.5)
 - [x] ~~İniş, kayıt başlat/durdur, fotoğraf ve orbit için jest atamaları~~ (bkz. §5.4)
 - [x] ~~Jest ayar adımları~~ (±2 m / ±15°)
 - [x] ~~Orbit yarıçapı ve hızı~~ (bkz. §5.7)
-- [x] ~~Tırmanma için proje irtifa limiti~~ (+50 m, bkz. §8.2)
-- [x] ~~Sesli bildirim dili ve detay seviyesi~~ (bkz. §9.1)
-- [x] ~~Batarya eşikleri~~ (bkz. §7.7)
-- [x] ~~Rüzgâr ve kalabalık durumlarında davranış~~ (bkz. §7.8, §7.9)
-- [ ] Kalkış ve oturum başlatma akışı (uygulama açılışı, kalkış, operatör kilidinin ilk kurulumu)
+- [x] ~~Tırmanma için proje irtifa limiti~~ (+50 m, bkz. §9.2)
+- [x] ~~Sesli bildirim dili ve detay seviyesi~~ (bkz. §10.1)
+- [x] ~~Batarya eşikleri~~ (bkz. §8.7)
+- [x] ~~Rüzgâr ve kalabalık durumlarında davranış~~ (bkz. §8.8, §8.9)
+- [x] ~~Kalkış ve oturum başlatma akışı~~ (bkz. §6)
 - [ ] Sinyal kaybında davranış (RC-N2 ile drone arası, telefon ile RC-N2 arası)
 - [ ] Kayıt ayarları (çözünürlük, FPS, fotoğraf formatı)
 
@@ -504,14 +570,16 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 
 - [ ] PerceptionManager engel mesafesi verisi Mini 4 Pro'da geliyor mu? (Aşama 1)
 - [ ] Virtual Stick'te DJI freni çalışıyor mu? (Aşama 4)
-- [ ] DJI'ın kritik pil zorunlu iniş eşiği kaç? (§7.7)
-- [ ] Ev noktası kumanda konumuna dinamik güncellenebiliyor mu? (§7.7)
-- [ ] Rüzgâr uyarı seviyesi MSDK'dan okunabiliyor mu? (§7.8)
-- [ ] Kumandanın duraklatma düğmesi Virtual Stick'ten çıkarıyor mu? (§7.10)
+- [ ] DJI'ın kritik pil zorunlu iniş eşiği kaç? (§8.7)
+- [ ] Ev noktası kumanda konumuna dinamik güncellenebiliyor mu? (§8.7)
+- [ ] Rüzgâr uyarı seviyesi MSDK'dan okunabiliyor mu? (§8.8)
+- [ ] Kumandanın duraklatma düğmesi Virtual Stick'ten çıkarıyor mu? (§8.10)
+- [ ] Ekran kapalıyken video çözme ve MediaPipe kesintisiz çalışıyor mu? (§6.5)
+- [ ] Çantadaki telefon ne kadar ısınıyor, analiz hızı düşüyor mu? (§6.5)
 
 ---
 
-## 13. Karar Günlüğü
+## 14. Karar Günlüğü
 
 | Tarih | Karar |
 |---|---|
@@ -539,10 +607,14 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | 2026-10-03 | Rüzgâr ve kalabalık: uyarı + otomatik kısıtlı mod (otomatik iniş yok) |
 | 2026-10-03 | Sesli bildirim: Türkçe, kısa, 3 öncelik seviyesi, sık olaylarda bip |
 | 2026-10-03 | Kumanda her zaman devralabilir (duraklatma düğmesi) |
+| 2026-10-03 | Oturum akışı (§6): otomatik kontrol listesi, oturum için en az **%40** pil |
+| 2026-10-03 | Kalkış **ekrandaki butonla**, 3 m'de bekleme |
+| 2026-10-03 | İlk operatör kilidi: Y 2 sn + görünüm profili. **2 dk** içinde kilit yoksa iniş |
+| 2026-10-03 | **Jest antrenman modu** (telefon ön kamerası) kapsamda |
 
 ---
 
-## 14. Kaynaklar
+## 15. Kaynaklar
 
 - [DJI MSDK: IVirtualStickManager](https://developer.dji.com/api-reference-v5/android-api/Components/IVirtualStickManager/IVirtualStickManager.html)
 - [DJI Mobile SDK dokümantasyonu](https://developer.dji.com/doc/mobile-sdk-tutorial/en/)
