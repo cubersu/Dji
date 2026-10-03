@@ -301,6 +301,56 @@ hız limiti düşer, takip yalnızca belirlenen minimum irtifanın üstünde sü
 - **Takipte kamera yönü:** Kamera operatöre bakar, drone çoğunlukla geri geri uçar. Ana kamera çarpma yönünü görmez, bu yüzden görsel engel tespiti için ana kameraya güvenilmez.
 - **DJI'ın kendi freni:** Virtual Stick'te Mini 4 Pro için çalışıp çalışmadığı test edilecek. Çalışıyorsa ikinci emniyet olur, ama tasarım buna **dayanmaz**.
 
+### 7.7 Batarya (onaylandı)
+
+| Pil seviyesi | Davranış | Sesli bildirim |
+|---|---|---|
+| < %30 | Tırmanma manevrası yapılmaz, engelde "bekle ve haber ver" uygulanır | (sadece engel anında) "Pil yetersiz, tırmanamıyorum" |
+| **%20** | **Uyarı.** Takip sürer. %15 ve %12'de tekrar edilir. | "Pil yüzde 20" |
+| **%10** | **Eve dönüş:** Takip biter, drone **bulunduğu yere** iner | "Pil yüzde 10, iniyorum" |
+
+- **"Ev" = kullanıcının yanı.** Drone zaten kullanıcıdan 4-15 m uzakta. Kalkış noktasına dönmek
+  (kullanıcı oradan kilometrelerce uzaklaşmış olabilir) hem pili hem kullanıcıyı boşa yorar.
+  İniş, onaylanmış iniş davranışıyla aynıdır (§5.4): olduğu yere dikey iniş.
+- **X ile iptal:** Zemin uygun değilse (su, yol vb.) X jesti inişi durdurur, drone havada kalır.
+  Kullanıcı kumandayı alıp elle indirir (bkz. §7.10). DJI'ın kritik pil inişi yine de devrededir.
+- **Dinamik ev noktası:** DJI'ın ev noktası sürekli kumandanın, yani kullanıcının konumuna güncellenir.
+  Sinyal kaybında DJI'ın kendi RTH'si de böylece kullanıcıya döner. _(MSDK desteği test ile doğrulanacak.)_
+- **DJI ile çakışma:** DJI'ın kendi "kritik pil zorunlu iniş" eşiği %10'a çok yakın olabilir.
+  Testte bu eşik okunur. Gerekirse bizim eşiğimiz DJI eşiğinin **+%3 üstüne** çekilir, böylece iniş kontrolü bizde kalır.
+- **Rüzgârda** eşikler +%5 kayar (§7.8).
+
+### 7.8 Rüzgâr
+
+DJI'ın rüzgâr uyarı seviyesi okunur _(MSDK'dan okunabildiği test ile doğrulanacak)_. Yedek olarak drone'un
+havada sabit dururken yaptığı eğim açısından tahmin yapılır.
+
+| Seviye | Davranış | Sesli bildirim |
+|---|---|---|
+| **Orta** | Maks. takip mesafesi 10 m, tırmanma limiti +20 m, orbit kapalı | "Rüzgâr kuvvetli, sınırlı mod" |
+| **Güçlü** | Takip en yakın ayarda (6 m mesafe, 3 m irtifa) ve düşük hızda, tırmanma kapalı, pil eşikleri +%5 (uyarı %25, iniş %15). 30 sn'de bir iniş önerisi. | "Rüzgâr çok kuvvetli, inmeni öneririm" |
+
+- Otomatik iniş yapılmaz, çünkü güçlü rüzgârda kontrolsüz iniş daha riskli olabilir. Kararı kullanıcı çömel + Y ile verir.
+- Gerekçe: 249 g gövde rüzgârdan çok etkilenir, rüzgâr da yükseldikçe ve açıklık arttıkça güçlenir.
+
+### 7.9 Kalabalık
+
+Kadrajdaki kişi sayısı sayılır (MediaPipe çoklu poz / kişi tespiti).
+
+| Durum | Davranış | Sesli bildirim |
+|---|---|---|
+| Operatör dışında **≥ 5 kişi** | Orbit kapalı, hız limiti yarıya iner, irtifa en az 5 m | "Kalabalık alan" |
+| Operatör kilidi belirsizleşti | Jestler kabul edilmez, takip son bilinen operatörle sürer | "Seni ayırt edemiyorum, Y yap" |
+
+- **Sınır:** Ana kamera kullanıcıya baktığı için drone'un **altındaki** insanları göremez. Kalabalık üzerinde uçmamak,
+  yasal olarak da kullanıcının sorumluluğundadır (SHGM).
+
+### 7.10 Kumandayla devralma
+
+Her an, her durumda **kumanda öncelikli olmalıdır.** Kullanıcı RC-N2'deki duraklatma (fren) düğmesine
+bastığında Virtual Stick modundan çıkılır ve kontrol tamamen elle uçuşa geçer.
+_(Mini 4 Pro'da bu davranış test ile doğrulanacak.)_
+
 ---
 
 ## 8. Engel Aşma: Tırmanma Manevrası
@@ -331,9 +381,10 @@ Mümkün değilse bekler ve haber verir.
 ### 8.2 Ön koşullar (hepsi sağlanmalı)
 
 - Yukarı sensör açık (ağaç, köprü altı ya da kapalı alanda tırmanma yok)
-- İrtifa payı var: yasal limit 120 m ve proje limiti (öneri: başlangıca göre +30 m) aşılmaz
+- İrtifa payı var: manevranın başladığı irtifanın en fazla **+50 m** üstüne çıkılır (orta rüzgârda +20 m), kalkışa göre 120 m sınırı aşılmaz
 - Sensör verisi taze ve ışık yeterli
-- Batarya tırmanma, geçiş ve dönüş için yeterli
+- Pil **en az %30** (50 m tırmanma ve iniş birkaç dakika sürer ve pilin ~%7-10'unu tüketir)
+- Rüzgâr "güçlü" seviyede değil (§7.8)
 
 ### 8.3 Manevra adımları
 
@@ -344,7 +395,28 @@ Mümkün değilse bekler ve haber verir.
 
 ---
 
-## 9. Sesli Bildirimler (Taslak)
+## 9. Sesli Bildirimler
+
+### 9.1 Ses politikası
+
+- **Dil:** Türkçe. Android'in çevrimdışı Türkçe TTS sesi kullanılır, internet gerekmez.
+- **Kısa:** Mesajlar 2-4 kelimedir.
+- **Öncelik seviyeleri:**
+
+| Seviye | Örnek | Davranış |
+|---|---|---|
+| **Kritik** | Pil, acil dur, engel, sensör, rüzgâr | Diğer konuşmayı keser. Durum sürdükçe 30 sn'de bir tekrarlanır. |
+| **Önemli** | Komut sonuçları, iniş onayı, orbit | Sıraya girer |
+| **Bilgi** | Ayar değişiklikleri | Sıradaysa kritik mesajlar için atlanabilir |
+
+- **Kısa sesler (bip):** Sık olaylarda konuşma yerine kullanılır, böylece kulaklık sürekli konuşmaz.
+  - Jest algılandı (tutma süresi başladı): tek kısa bip
+  - Komut moduna giriş: çift bip
+  - Komut modundan çıkış: alçalan ton
+- **Müzik:** Kullanıcı müzik dinliyorsa bildirim sırasında müziğin sesi kısılır (Android audio focus / ducking).
+- **Detay seviyesi:** v1'de tek seviye ("sade"). Ayarlanabilir detay v2+.
+
+### 9.2 Mesajlar
 
 | Durum | Mesaj |
 |---|---|
@@ -365,6 +437,13 @@ Mümkün değilse bekler ve haber verir.
 | Takip engel nedeniyle durdu | "Engel var, takip durdu" |
 | Sensör verisi yok | "Sensör verisi yok, durdum" |
 | Güvenli moda geçiş | "Sensörler kapalı, güvenli moda geçildi" |
+| Pil uyarısı | "Pil yüzde 20" (ve %15, %12) |
+| Pil inişi | "Pil yüzde 10, iniyorum" |
+| Pil, tırmanma yok | "Pil yetersiz, tırmanamıyorum" |
+| Rüzgâr orta | "Rüzgâr kuvvetli, sınırlı mod" |
+| Rüzgâr güçlü | "Rüzgâr çok kuvvetli, inmeni öneririm" |
+| Kalabalık | "Kalabalık alan" |
+| Operatör belirsiz | "Seni ayırt edemiyorum, Y yap" |
 
 ---
 
@@ -401,8 +480,9 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | Düşük ışıkta sensör körlüğü | Orta | Veri tazeliği bekçisi, B moduna otomatik geçiş |
 | İnce dal / tel | Orta | Yüksek güvenlik payı, tırmanmada ek pay |
 | ~200-300 ms gecikme | Düşük-Orta | Hız limitleri |
-| Rüzgâr (249 g gövde) | Orta | Rüzgâr uyarısında takibi sınırla (detaylandırılacak) |
-| Yasal: görüş hattı (SHGM), kalabalık üstü uçuş | Orta | Kullanım kuralları, kalabalık tespitinde uyarı (detaylandırılacak) |
+| Rüzgâr (249 g gövde) | Orta | Seviyeye göre kısıtlı mod, pil eşiklerinin kayması (§7.8) |
+| Yasal: görüş hattı (SHGM), kalabalık üstü uçuş | Orta | Kullanım kuralları, kalabalık modu (§7.9) |
+| DJI kritik pil eşiğiyle çakışma | Orta | Testte eşiği okuyup bizimkini üstüne çekmek (§7.7) |
 
 ---
 
@@ -412,10 +492,22 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 - [x] ~~İniş, kayıt başlat/durdur, fotoğraf ve orbit için jest atamaları~~ (bkz. §5.4)
 - [x] ~~Jest ayar adımları~~ (±2 m / ±15°)
 - [x] ~~Orbit yarıçapı ve hızı~~ (bkz. §5.7)
-- [ ] Tırmanma için proje irtifa limiti (+30 m önerisi)
-- [ ] Sesli bildirim dili ve detay seviyesi
-- [ ] Batarya eşikleri (takibi bitirme / eve dönüş)
-- [ ] Rüzgâr ve kalabalık durumlarında davranış
+- [x] ~~Tırmanma için proje irtifa limiti~~ (+50 m, bkz. §8.2)
+- [x] ~~Sesli bildirim dili ve detay seviyesi~~ (bkz. §9.1)
+- [x] ~~Batarya eşikleri~~ (bkz. §7.7)
+- [x] ~~Rüzgâr ve kalabalık durumlarında davranış~~ (bkz. §7.8, §7.9)
+- [ ] Kalkış ve oturum başlatma akışı (uygulama açılışı, kalkış, operatör kilidinin ilk kurulumu)
+- [ ] Sinyal kaybında davranış (RC-N2 ile drone arası, telefon ile RC-N2 arası)
+- [ ] Kayıt ayarları (çözünürlük, FPS, fotoğraf formatı)
+
+### Test ile doğrulanacaklar
+
+- [ ] PerceptionManager engel mesafesi verisi Mini 4 Pro'da geliyor mu? (Aşama 1)
+- [ ] Virtual Stick'te DJI freni çalışıyor mu? (Aşama 4)
+- [ ] DJI'ın kritik pil zorunlu iniş eşiği kaç? (§7.7)
+- [ ] Ev noktası kumanda konumuna dinamik güncellenebiliyor mu? (§7.7)
+- [ ] Rüzgâr uyarı seviyesi MSDK'dan okunabiliyor mu? (§7.8)
+- [ ] Kumandanın duraklatma düğmesi Virtual Stick'ten çıkarıyor mu? (§7.10)
 
 ---
 
@@ -442,6 +534,11 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | 2026-10-03 | Kombinasyon kuralları: çapraz mesafe ≤ 18 m, kamera eğimi ≤ 45° |
 | 2026-10-03 | "Drone'a dön" kuralı: yüz görünmüyorsa asimetrik jestler yok sayılır |
 | 2026-10-03 | Orbit: yarıçap = takip mesafesi (min 5 m), 2 m/s, 1 tam tur |
+| 2026-10-03 | Tırmanma limiti: başlangıç irtifasına göre **+50 m**, en az %30 pil |
+| 2026-10-03 | Pil: **%20 uyarı**, **%10 eve dönüş** = kullanıcının yanında, olduğu yere iniş |
+| 2026-10-03 | Rüzgâr ve kalabalık: uyarı + otomatik kısıtlı mod (otomatik iniş yok) |
+| 2026-10-03 | Sesli bildirim: Türkçe, kısa, 3 öncelik seviyesi, sık olaylarda bip |
+| 2026-10-03 | Kumanda her zaman devralabilir (duraklatma düğmesi) |
 
 ---
 
