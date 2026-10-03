@@ -262,6 +262,7 @@ Uygulama açılınca (telefon + RC-N2 + drone bağlıyken) kontroller otomatik y
 | Kontrol | Başarısızsa |
 |---|---|
 | Drone GPS'i ve ev noktası kaydı | ⛔ **Kalkış yok** (takip ve eve dönüş için şart) |
+| Sinyal kaybı davranışı ve RTH irtifası (30 m) DJI'a yüklendi (§8.11) | ⛔ Kalkış yok |
 | Drone pili **≥ %40** | ⛔ Kalkış yok |
 | DJI sistem durumu (pusula, IMU, uçuşa yasak bölge) | ⛔ Kalkış yok, DJI'ın uyarısı okunur |
 | Engel sensörü verisi geliyor mu? | ⚠️ "B modunda devam edilsin mi?" sorulur, karar kullanıcının |
@@ -416,6 +417,60 @@ Her an, her durumda **kumanda öncelikli olmalıdır.** Kullanıcı RC-N2'deki d
 bastığında Virtual Stick modundan çıkılır ve kontrol tamamen elle uçuşa geçer.
 _(Mini 4 Pro'da bu davranış test ile doğrulanacak.)_
 
+### 8.11 Bağlantı kayıpları (onaylandı)
+
+> **Temel gerçek:** Drone ↔ kumanda bağlantısı koptuğunda uygulama drone'a hiçbir şey yaptıramaz.
+> O anda drone'u yalnızca DJI'ın kendi yazılımı yönetir. Bu yüzden sinyal kaybı davranışı **kalkıştan önce DJI'a yüklenir** (§6.1).
+> Bu modda DJI'ın kendi engelden kaçınması tam olarak devrededir.
+
+```
+ Drone ══(1) O4 radyo══ RC-N2 ──(2) USB kablo── Telefon ──(4) Bluetooth── Kulaklık
+   │
+   └──(3) Canlı video (O4 içinde)
+```
+
+#### (1) Drone ↔ Kumanda
+
+- Olası sebep mesafe değil, **arada engel olması:** bina köşesi, tırmanmada arada kalan ağaç sırası, vücudun çantadaki kumandanın antenlerini kapatması.
+- **Karar:** Drone **~1 dakika havada asılı kalır, ardından eve dönüş (RTH)** başlar.
+- **Ev = kullanıcının son konumu** (dinamik ev noktası, §8.7). RTH irtifası: **30 m** (çoğu ağacın üstü). DJI'ın gelişmiş RTH'si engel sensörlerini kullanır.
+- Bu sürede telefon kullanıcıya **yol tarif eder** (drone'un son konumu ile kullanıcı GPS'i biliniyor):
+  "Drone bağlantısı koptu. Drone arkanda, 40 metre." Mesaj 10 sn'de bir güncellenir.
+- 60 sn dolunca telefon, politika gereği RTH'nin başladığını bilir: "Drone eve dönüyor, sana geliyor. İniş için yer aç."
+- **RTH sırasında bağlantı geri gelirse:** RTH iptal edilir, drone havada bekler, Y beklenir (bkz. ortak kural).
+- ⚠️ **Uygulanabilirlik:** DJI'ın sinyal kaybı seçenekleri (havada kal / eve dön / in) normalde **anında** uygulanır, "1 dk bekle, sonra dön" gibi gecikmeli bir seçenek olmayabilir. Mini 4 Pro'da kendi uygulamamızı çalıştıramadığımız için bu zamanlayıcıyı biz de kuramayız.
+  - Test edilecek: DJI sinyal kaybında RTH'den önce ne kadar bekliyor, süre ayarlanabiliyor mu?
+  - **Yedek plan:** Gecikme mümkün değilse **anında RTH** kullanılır. Drone kullanıcıya doğru geldiği için bağlantı genellikle kısa sürede geri gelir. Geri gelince RTH iptal edilir ve drone havada bekler. Sonuç, istenen davranışa çok yakındır.
+- ⚠️ **İniş noktası:** Ev noktası kullanıcının konumu olduğundan RTH inişi kullanıcının yakınına denk gelir.
+  MSDK ev noktasını keyfi bir koordinata ayarlamaya izin veriyorsa ev noktası kullanıcının **~5 m yanına** konur _(test edilecek)_.
+
+#### (2) Telefon ↔ Kumanda (kablo çıktı, uygulama çöktü, telefon ısındı)
+
+- Kumanda drone'a bağlı kalır, uygulamadan komut gelmez. Komut kesilince drone **havada asılı kalır** _(ne kadar sürede durduğu test edilecek)_.
+- **Uygulama çalışıyorsa** (sadece kablo çıktıysa): "Kumanda bağlantısı koptu, kabloyu kontrol et."
+- **Uygulama çöktüyse:** Otomatik yeniden başlar ve kumandaya bağlanır, ama takibe kendiliğinden devam etmez: "Sistem yeniden başladı, Y yap."
+- **Pratik önlem:** Kısa, dik açılı USB kablo. Kumanda göğüs çantasına sabitlenir.
+
+#### (3) Video bozuldu, kontrol bağlantısı sağlam
+
+- **Video sağlam, kullanıcı görünmüyor** (engel arkasında): GPS yedeğiyle takip sürer (§7).
+- **Videonun kendisi donmuş veya kopmuş:** Drone **havada asılı kalır.** Drone kullanıcıyı göremediği için **X (acil dur) jestini de göremez.** Acil durdurma kanalı olmadan takip yapılmaz. "Görüntü kesildi, durdum."
+
+#### (4) Kulaklık koptu
+
+- Bildirimler telefon hoparlöründen yüksek sesle verilir.
+- Onay geri bildirimi için drone'un yedek "onay hareketi" (§5.9) devreye girer.
+
+#### Ortak kural: Bağlantı geri gelince
+
+Hangi bağlantı koparsa kopsun, geri geldiğinde **takip otomatik olarak devam etmez.** Drone havada bekler: "Bağlantı geri geldi, Y yap."
+Kullanıcı Y yapınca takip sürer. Gerekçe: Kopukluk sırasında ortam değişmiş olabilir.
+
+#### "Hayattayım" sesi
+
+Uygulama çökerse kulaklık sessizleşir ve bu fark edilmeyebilir. Bu yüzden **dakikada bir çok kısa ve hafif bir "tık"** sesi çalınır.
+Başka bir bildirim çalınıyorsa o dakikanın tık sesi atlanır. **Sessizlik = bir şeyler ters.**
+
 ---
 
 ## 9. Engel Aşma: Tırmanma Manevrası
@@ -478,6 +533,7 @@ Mümkün değilse bekler ve haber verir.
   - Jest algılandı (tutma süresi başladı): tek kısa bip
   - Komut moduna giriş: çift bip
   - Komut modundan çıkış: alçalan ton
+  - "Hayattayım" sesi: dakikada bir hafif tık (§8.11)
 - **Müzik:** Kullanıcı müzik dinliyorsa bildirim sırasında müziğin sesi kısılır (Android audio focus / ducking).
 - **Detay seviyesi:** v1'de tek seviye ("sade"). Ayarlanabilir detay v2+.
 
@@ -509,6 +565,12 @@ Mümkün değilse bekler ve haber verir.
 | Rüzgâr güçlü | "Rüzgâr çok kuvvetli, inmeni öneririm" |
 | Kalabalık | "Kalabalık alan" |
 | Operatör belirsiz | "Seni ayırt edemiyorum, Y yap" |
+| Drone bağlantısı koptu | "Drone bağlantısı koptu. Drone arkanda, {x} metre." (10 sn'de bir) |
+| RTH başladı (60 sn sonra) | "Drone eve dönüyor, sana geliyor. İniş için yer aç." |
+| Kumanda bağlantısı koptu | "Kumanda bağlantısı koptu, kabloyu kontrol et" |
+| Uygulama yeniden başladı | "Sistem yeniden başladı, Y yap" |
+| Görüntü kesildi | "Görüntü kesildi, durdum" |
+| Bağlantı geri geldi | "Bağlantı geri geldi, Y yap" |
 
 ---
 
@@ -548,6 +610,8 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | Rüzgâr (249 g gövde) | Orta | Seviyeye göre kısıtlı mod, pil eşiklerinin kayması (§8.8) |
 | Yasal: görüş hattı (SHGM), kalabalık üstü uçuş | Orta | Kullanım kuralları, kalabalık modu (§8.9) |
 | Telefonun ısınması / ekran kapalıyken kısıtlanması | Orta | Ön plan servisi, sıcaklık izleme, analiz hızını düşürme (§6.5) |
+| Kablo çıkması / uygulama çökmesi | Orta | Dik açılı kısa kablo, otomatik yeniden başlama, "hayattayım" sesi (§8.11) |
+| RTH inişinin kullanıcıya yakın olması | Orta | Sesli uyarı, mümkünse ev noktasına 5 m ofset (§8.11) |
 | DJI kritik pil eşiğiyle çakışma | Orta | Testte eşiği okuyup bizimkini üstüne çekmek (§8.7) |
 
 ---
@@ -563,7 +627,7 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 - [x] ~~Batarya eşikleri~~ (bkz. §8.7)
 - [x] ~~Rüzgâr ve kalabalık durumlarında davranış~~ (bkz. §8.8, §8.9)
 - [x] ~~Kalkış ve oturum başlatma akışı~~ (bkz. §6)
-- [ ] Sinyal kaybında davranış (RC-N2 ile drone arası, telefon ile RC-N2 arası)
+- [x] ~~Sinyal kaybında davranış~~ (bkz. §8.11)
 - [ ] Kayıt ayarları (çözünürlük, FPS, fotoğraf formatı)
 
 ### Test ile doğrulanacaklar
@@ -576,6 +640,10 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 - [ ] Kumandanın duraklatma düğmesi Virtual Stick'ten çıkarıyor mu? (§8.10)
 - [ ] Ekran kapalıyken video çözme ve MediaPipe kesintisiz çalışıyor mu? (§6.5)
 - [ ] Çantadaki telefon ne kadar ısınıyor, analiz hızı düşüyor mu? (§6.5)
+- [ ] Sinyal kaybında DJI RTH'den önce ne kadar bekliyor, gecikme ayarlanabiliyor mu? (§8.11)
+- [ ] Ev noktası kullanıcıdan ~5 m ofsetli bir koordinata ayarlanabiliyor mu? (§8.11)
+- [ ] Virtual Stick komutları kesilince drone ne kadar sürede havada duruyor? (§8.11)
+- [ ] RTH sırasında bağlantı geri gelince uygulama RTH'yi iptal edebiliyor mu? (§8.11)
 
 ---
 
@@ -611,6 +679,10 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | 2026-10-03 | Kalkış **ekrandaki butonla**, 3 m'de bekleme |
 | 2026-10-03 | İlk operatör kilidi: Y 2 sn + görünüm profili. **2 dk** içinde kilit yoksa iniş |
 | 2026-10-03 | **Jest antrenman modu** (telefon ön kamerası) kapsamda |
+| 2026-10-03 | Drone-kumanda bağlantısı koparsa: **~1 dk havada kal, sonra RTH** (ev = kullanıcı, 30 m). Gecikme mümkün değilse anında RTH. |
+| 2026-10-03 | Video koparsa havada kal (X görülemez). Telefon-kumanda koparsa havada kal. |
+| 2026-10-03 | Bağlantı geri gelince takip için **Y beklenir** |
+| 2026-10-03 | Dakikada bir **"hayattayım" tık sesi** |
 
 ---
 
