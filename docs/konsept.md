@@ -1,7 +1,7 @@
 # DJI Mini 4 Pro: Jestle Kontrol ve Otonom Takip Konsepti
 
 > **Durum:** Teorik / konsept aşaması. Henüz kod yok.
-> **Son güncelleme:** 2026-10-02
+> **Son güncelleme:** 2026-10-03
 >
 > Bu doküman, proje fikrini şekillendiren soru-cevap konuşmalarında alınan kararların
 > toplandığı yerdir. Her yeni karar buraya ve en alttaki **Karar Günlüğü**'ne işlenir.
@@ -99,7 +99,7 @@ Güvenlik valfi  >  ACİL DURDUR jesti  >  Diğer jestler  >  Takip
 
 ### 5.1 Tasarım ilkeleri
 
-1. **Tamamı vücut jesti.** Komut anında drone 10-20 m uzakta olabilir. Bu mesafede parmak jestleri okunmaz, kol pozisyonları okunur.
+1. **Tamamı vücut jesti.** Komut anında drone 10-18 m uzakta olabilir. Bu mesafede parmak jestleri okunmaz, kol pozisyonları okunur.
    İlk sürümde **sadece MediaPipe Pose** kullanılır, el modeline gerek yoktur.
 2. **Sabit pozlar.** Pozlar belirli bir süre tutulur. Tek hareketli jest orbit ("kement") jestidir.
 3. **Kullanıcının bakış açısı.** Drone kullanıcıya baktığı için görüntü aynalanmıştır. Sistem bunu ters çevirir: "sağ kol" her zaman **kullanıcının sağı** demektir.
@@ -167,17 +167,68 @@ Her durumdan ──X──► [DURDURULDU: havada asılı] ──Y──► [TAK
 **İniş davranışı:** Drone **bulunduğu yere dikey olarak** iner. Aşağı sensörler zemini kontrol eder.
 Zeminin uygunluğundan kullanıcı sorumludur.
 
-### 5.5 Takip ayarlarının jestle değiştirilmesi
+### 5.5 Takip ayarları ve sınırları (onaylandı)
 
-- Takip mesafesi, irtifa ve açı sabit değildir, jestlerle ayarlanır (bkz. §5.4).
-- Adımlar: **±2 m** (mesafe, irtifa), **±15°** (açı).
-- Ayarlar güvenli sınırlar içinde tutulur (öneri: min. mesafe 4 m, min. irtifa 3 m; kesin değerler açık soru).
-- Her değişiklik sesli olarak doğrulanır ("Mesafe 10 metre").
+Takip mesafesi, irtifa ve açı jestlerle ayarlanır (bkz. §5.4). Her değişiklik sesli olarak doğrulanır ("Mesafe 10 metre").
 
-### 5.6 Karışabilecek jest çiftleri (test listesi)
+| Ayar | Varsayılan | Min | Maks | Adım |
+|---|---|---|---|---|
+| **Mesafe** (yatay) | **8 m** | 4 m | 15 m | ±2 m |
+| **İrtifa** (kullanıcıya göre) | **5 m** | 3 m | 10 m | ±2 m |
+| **Açı** | **+30°** (sağ-arka) | Tam tur serbest | | ±15° |
+
+- **Açı tanımı:** Kullanıcının hareket yönüne göredir: 0° arka, +90° sağ, 180° ön, −90° sol.
+  Kullanıcı durduğunda drone son pozisyonunu korur. Sol-arkaya (−30°) geçmek için dört kez "sola kay" jesti yapılır (+30° → +15° → 0° → −15° → −30°).
+- **Gerekçeler:**
+  - 8 m / 5 m: Kamera eğimi ~25°, çapraz mesafe ~9,5 m. Jestler çok iyi okunur, valfe fren payı kalır.
+  - +30°: Videoda daha sinematik bir görüntü verir ve kullanıcının profili görünür.
+  - Min 4 m: Pervane ve kullanıcı için güvenlik payı.
+  - Min 3 m irtifa: Baş ve kaldırılmış kolun üstünde kalır.
+  - Maks 15 m / 10 m: En uç noktada çapraz mesafe ~18 m olur, jest okunabilirlik sınırına denk gelir.
+
+**Fiziksel sınırlar** (Mini 4 Pro'nun ~82° görüş açısı, 1080p canlı görüntü, 1,75 m boyunda bir kişi için):
+
+| Çapraz mesafe | Kişinin görüntüdeki boyu | Jest tanıma |
+|---|---|---|
+| 8 m | ~275 px | ✅ Çok iyi |
+| 10 m | ~220 px | ✅ İyi |
+| 15 m | ~150 px | 🟢 Güvenilir |
+| 18 m | ~125 px | 🟡 Sınırda |
+| 20 m+ | ≤110 px | ❌ Güvenilmez |
+
+**Kombinasyon kuralları:**
+- Drone ile kullanıcı arasındaki **çapraz mesafe ≤ 18 m**.
+- **Kamera eğimi ≤ 45°**, yani irtifa mesafeden fazla olamaz. Çok tepeden bakınca kollar gövdeyle üst üste biner.
+- Bir jest bu sınırları ihlal edecekse uygulanmaz, sebebi sesli söylenir (ör. 4 m mesafede "yüksel" → "Önce uzaklaş").
+- Engel aşma manevrası (§8) sırasındaki geçici irtifa artışı bu kurallardan muaftır, o sırada jest beklenmez.
+
+### 5.6 "Drone'a dön" kuralı
+
+Drone varsayılan olarak kullanıcının arkasında/yanındadır. Arkadan bakıldığında model sağ ve solu karıştırabilir.
+
+- Uyandırma jestinden sonra kullanıcı **drone'a döner**.
+- **Yüz görünüyorsa** (burun ve göz noktaları): tüm jestler kabul edilir.
+- **Yüz görünmüyorsa:** Sadece simetrik jestler kabul edilir (Y, X, T, yaklaş, yüksel, alçal, çömel, fotoğraf, kayıt).
+  Asimetrik jestler (sağa/sola kay, kement yönü) yok sayılır ve "Bana dön" uyarısı verilir.
+- Gerekçe: Yanlış yöne gitmektense hiç gitmemek daha güvenlidir.
+
+### 5.7 Orbit (onaylandı)
+
+| Ayar | Değer |
+|---|---|
+| Yarıçap | O anki takip mesafesi (en az 5 m) |
+| İrtifa | O anki takip irtifası |
+| Hız | Çevresel hız **2 m/s** sabit |
+| Tur süresi | 8 m'de ~25 sn, 15 m'de ~47 sn |
+| Kapsam | 1 tam tur, sonra başladığı açıya döner |
+| Yön | Sağ kolla kement saat yönünde, sol kolla saat yönünün tersine |
+| İptal | X jesti, kullanıcının harekete geçmesi ya da engel ("Orbit yarıda kaldı, engel") |
+
+### 5.8 Karışabilecek jest çiftleri (test listesi)
 
 | Çift | Neden karışabilir | Ayırt edici özellik |
 |---|---|---|
+| Ön ↔ Arka görünüm | Arkadan bakınca sağ-sol ters algılanabilir | Yüz noktalarının görünürlüğü (bkz. §5.6) |
 | X ↔ Yaklaş | İkisinde de eller omuz hizasında | X'te bilekler **karşı** omuzda, Yaklaş'ta **kendi** omzunda |
 | Y ↔ Kayıt | İkisinde de kollar yukarıda | Y'de dirsekler düz, Kayıt'ta bükük ve bilekler başa yakın |
 | Alçal ↔ Rahat duruş | Kol aşağıda | Alçal'da kol gövdeden belirgin şekilde açık (~45°) |
@@ -185,12 +236,12 @@ Zeminin uygunluğundan kullanıcı sorumludur.
 
 Bu çiftler, test yol haritasındaki "kayıtlı videolarla jest geliştirme" aşamasında özellikle denenir.
 
-### 5.7 Geri bildirim
+### 5.9 Geri bildirim
 
 - **Birincil:** Bluetooth kulaklıktan sesli bildirim.
 - **Yedek:** Drone'un "onay hareketi" (ör. küçük sağ-sol yaw salınımı).
 
-### 5.8 İleride (v2+)
+### 5.10 İleride (v2+)
 
 - Yakın mesafede el/parmak jestleri: Önce vücut pozu kişiyi bulur, sonra el bölgesi kırpılıp el modeline verilir.
 - Wear OS saat ile ek komut kanalı.
@@ -299,6 +350,9 @@ Mümkün değilse bekler ve haber verir.
 |---|---|
 | Komut alındı | "Komut: {komut}" |
 | Ayar değişti | "Mesafe {x} metre" / "İrtifa {x} metre" / "Açı {x} derece" |
+| Sınır ihlali | "Önce uzaklaş" / "En yakın mesafe" / "En yüksek irtifa" |
+| Arkadan asimetrik jest | "Bana dön" |
+| Orbit | "Orbit başladı" / "Orbit tamam" / "Orbit yarıda kaldı, engel" |
 | Fotoğraf | "3, 2, 1" + deklanşör sesi |
 | Kayıt | "Kayıt başladı" / "Kayıt durdu" |
 | İniş onayı | "İniş onaylansın mı?" → "İniyorum" / "İniş iptal" |
@@ -354,10 +408,10 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 
 ## 12. Açık Sorular
 
-- [ ] Varsayılan takip mesafesi / irtifa / açı ve min.-maks. sınırlar
+- [x] ~~Varsayılan takip mesafesi / irtifa / açı ve min.-maks. sınırlar~~ (bkz. §5.5)
 - [x] ~~İniş, kayıt başlat/durdur, fotoğraf ve orbit için jest atamaları~~ (bkz. §5.4)
 - [x] ~~Jest ayar adımları~~ (±2 m / ±15°)
-- [ ] Orbit yarıçapı ve hızı
+- [x] ~~Orbit yarıçapı ve hızı~~ (bkz. §5.7)
 - [ ] Tırmanma için proje irtifa limiti (+30 m önerisi)
 - [ ] Sesli bildirim dili ve detay seviyesi
 - [ ] Batarya eşikleri (takibi bitirme / eve dönüş)
@@ -384,6 +438,10 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | 2026-10-02 | Ayar adımları: ±2 m (mesafe, irtifa), ±15° (açı) |
 | 2026-10-02 | İniş: çömel + Y onayı, drone **bulunduğu yere** iner |
 | 2026-10-02 | Fotoğraf: eller belde, **3 sn sesli geri sayım** |
+| 2026-10-03 | Takip varsayılanları: mesafe **8 m** (4-15), irtifa **5 m** (3-10), açı **+30°** sağ-arka |
+| 2026-10-03 | Kombinasyon kuralları: çapraz mesafe ≤ 18 m, kamera eğimi ≤ 45° |
+| 2026-10-03 | "Drone'a dön" kuralı: yüz görünmüyorsa asimetrik jestler yok sayılır |
+| 2026-10-03 | Orbit: yarıçap = takip mesafesi (min 5 m), 2 m/s, 1 tam tur |
 
 ---
 
