@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sensör Testi</string>
+    <string name="banner">Aşama 1 – Kader testi. Bu uygulama drone\'u UÇURMAZ. Drone yerde, motorlar kapalı olmalı.</string>
+    <string name="log_start">Kaydı başlat</string>
+    <string name="log_stop">Kaydı durdur</string>
+    <string name="share">Kaydı paylaş</string>
+</resources>

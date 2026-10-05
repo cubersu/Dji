@@ -1,0 +1,12 @@
+# Bu dosyayı "local.properties" adıyla kopyala ve değerleri doldur.
+# local.properties git'e GİRMEZ (.gitignore), anahtarın repoda görünmez.
+
+# Android SDK yolu (Android Studio bunu kendisi yazar)
+# sdk.dir=/Users/<kullanici>/Library/Android/sdk
+
+# developer.dji.com > Apps bölümündeki App Key
+dji.appKey=BURAYA_APP_KEY
+
+# App Key oluştururken girdiğin paket adı (Package Name). Birebir aynı olmalı,
+# yoksa SDK kaydı başarısız olur.
+dji.packageName=com.cubersu.dji.sensortest

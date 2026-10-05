@@ -2,7 +2,7 @@
 
 > **Durum:** Konsept v1 tamamlandı, tüm tasarım soruları kapandı. Henüz kod yok.
 > Sıradaki adım: Saha testleriyle doğrulanacak maddeler (§14) ve Aşama 1 (§12).
-> **Son güncelleme:** 2026-10-05
+> **Son güncelleme:** 2026-10-05 (Aşama 1 uygulaması eklendi)
 >
 > Bu doküman, proje fikrini şekillendiren soru-cevap konuşmalarında alınan kararların
 > toplandığı yerdir. Her yeni karar buraya ve en alttaki **Karar Günlüğü**'ne işlenir.
@@ -626,7 +626,7 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 
 | # | Aşama | Risk | Amaç |
 |---|---|---|---|
-| 1 | **Kader testi: yerde sensör verisi** (motorlar kapalı) | Yok | PerceptionManager, Mini 4 Pro'da engel mesafesi veriyor mu? Drone'un etrafında kartonla dolaşılır. |
+| 1 | **Kader testi: yerde sensör verisi** (motorlar kapalı) | Yok | PerceptionManager, Mini 4 Pro'da engel mesafesi veriyor mu? Drone'un etrafında kartonla dolaşılır. Uygulama: `android/sensortest`, prosedür: `android/README.md` |
 | 2 | Jest tanıma: **antrenman modu** ve **kayıtlı videolar** | Yok | Önce telefonun ön kamerasıyla (§6.6), sonra DJI Fly ile çekilmiş jest videolarıyla MediaPipe kurallarının ayarlanması |
 | 3 | Valf simülasyonu | Yok | Kaydedilmiş sensör verisiyle valf mantığını masa başında test |
 | 4 | Yavaş uçuşta fren testi | Düşük | Açık alanda ~1 m/s ile karton kutuya: valf durduruyor mu? DJI freni devrede mi? |
@@ -679,6 +679,7 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 ### Test ile doğrulanacaklar
 
 - [ ] PerceptionManager engel mesafesi verisi Mini 4 Pro'da geliyor mu? (Aşama 1)
+  - _Kod incelemesi (MSDK 5.18.0): SDK'da Mini 4 Pro için ayrı bir algılama modülü var ve 360° mesafeleri (`ObstacleData`) drone'un çok yönlü sensör yayınından dolduruyor. Umut verici, saha testi kesinleştirecek._
 - [ ] Virtual Stick'te DJI freni çalışıyor mu? (Aşama 4)
 - [ ] DJI'ın kritik pil zorunlu iniş eşiği kaç? (§8.7)
 - [ ] Ev noktası kumanda konumuna dinamik güncellenebiliyor mu? (§8.7)
