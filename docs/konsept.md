@@ -1,7 +1,8 @@
 # DJI Mini 4 Pro: Jestle Kontrol ve Otonom Takip Konsepti
 
-> **Durum:** Teorik / konsept aşaması. Henüz kod yok.
-> **Son güncelleme:** 2026-10-03
+> **Durum:** Konsept v1 tamamlandı, tüm tasarım soruları kapandı. Henüz kod yok.
+> Sıradaki adım: Saha testleriyle doğrulanacak maddeler (§14) ve Aşama 1 (§12).
+> **Son güncelleme:** 2026-10-05
 >
 > Bu doküman, proje fikrini şekillendiren soru-cevap konuşmalarında alınan kararların
 > toplandığı yerdir. Her yeni karar buraya ve en alttaki **Karar Günlüğü**'ne işlenir.
@@ -155,7 +156,7 @@ Her durumdan ──X──► [DURDURULDU: havada asılı] ──Y──► [TAK
 
 | Jest | Komut | Not |
 |---|---|---|
-| Eller belde | Fotoğraf | 1 sn. Kulaklıkta **3 sn geri sayım** ("3-2-1"), sonra çekim. Kullanıcı geri sayımda serbestçe poz verir. |
+| Eller belde | Fotoğraf | 1 sn. Kulaklıkta **3 sn geri sayım** ("3-2-1"), sonra çekim. Kullanıcı geri sayımda serbestçe poz verir. Kayıt sürerken kare işareti konur (§11.3). |
 | İki el başın üstünde ("çatı") | Kayıt başlat / durdur | 1 sn. Sesli durum bildirimi |
 
 **Kritik**
@@ -268,7 +269,8 @@ Uygulama açılınca (telefon + RC-N2 + drone bağlıyken) kontroller otomatik y
 | Engel sensörü verisi geliyor mu? | ⚠️ "B modunda devam edilsin mi?" sorulur, karar kullanıcının |
 | Telefon GPS'i | ⚠️ Uyarı (GPS yedeği çalışmaz) |
 | Bluetooth kulaklık | ⚠️ Uyarı, "Kulaklık testi" sesi çalınır |
-| Telefon pili, SD kart alanı | ⚠️ Uyarı |
+| Telefon pili | ⚠️ Uyarı |
+| SD kartta **≥ 15 GB** boş alan (§11.2) | ⚠️ Uyarı |
 | Işık seviyesi | ⚠️ "Düşük ışık, sensörler kısıtlı" |
 
 ⛔ = güvenlik şartı, ⚠️ = konfor / yedek.
@@ -546,7 +548,7 @@ Mümkün değilse bekler ve haber verir.
 | Sınır ihlali | "Önce uzaklaş" / "En yakın mesafe" / "En yüksek irtifa" |
 | Arkadan asimetrik jest | "Bana dön" |
 | Orbit | "Orbit başladı" / "Orbit tamam" / "Orbit yarıda kaldı, engel" |
-| Fotoğraf | "3, 2, 1" + deklanşör sesi |
+| Fotoğraf | "3, 2, 1" + deklanşör sesi (kayıt sürerken: "Kare işaretlendi") |
 | Kayıt | "Kayıt başladı" / "Kayıt durdu" |
 | İniş onayı | "İniş onaylansın mı?" → "İniyorum" / "İniş iptal" |
 | Acil dur | "Durdum" |
@@ -572,9 +574,53 @@ Mümkün değilse bekler ve haber verir.
 | Görüntü kesildi | "Görüntü kesildi, durdum" |
 | Bağlantı geri geldi | "Bağlantı geri geldi, Y yap" |
 
+## 11. Kamera ve Kayıt Ayarları (onaylandı)
+
+### 11.1 Kayıt ile canlı görüntü ayrımı
+
+- **Kayıt:** Drone'un SD kartına yüksek kalitede yazılır.
+- **Canlı görüntü:** Telefona gelir (~1080p). Jest tanıma ve takip **bununla** çalışır.
+
+Çoğu kayıt ayarı canlı görüntüyü etkilemez, ama bazıları etkiler:
+
+| Ayar | Canlı görüntüye etkisi | v1'de |
+|---|---|---|
+| **Dikey çekim** (gimbal 90° döner) | Görüntü dikey olur, takip hesapları değişir | ❌ Kapalı |
+| **Dijital zoom** | Kadraj daralır, kullanıcı kadrajdan çabuk çıkar | ❌ Kapalı (1x) |
+| **D-Log M** | Canlı görüntü soluk ve kontrastsız gelir, kişi tespiti zorlaşabilir | 🟡 Seçenek, test edilecek |
+| **4K/100 yavaş çekim** | Bazı modlarda canlı görüntü değişebilir | 🟡 Ek profil, test edilecek |
+
+### 11.2 Varsayılan kayıt profili
+
+| Ayar | Değer | Gerekçe |
+|---|---|---|
+| Video | **4K / 60 fps** | Aksiyonda akıcı, sonradan %50 yavaşlatılabilir |
+| Codec | **H.265** | Aynı kalitede daha küçük dosya |
+| Renk | **Normal** | Renk düzeltme gerekmez, canlı görüntü net gelir |
+| Yön / zoom | **Yatay / 1x** | §11.1 kısıtları |
+| Pozlama | **Otomatik** | Işık sürekli değişiyor |
+| Fotoğraf | **12 MP JPEG** | Hızlı kaydedilir (48 MP / RAW yavaş) |
+
+- **Ek profil "Yavaş çekim":** 4K/100. Canlı görüntüye etkisi test edildikten sonra açılır.
+- **Alan:** 4K/60 H.265 ≈ 1 GB/dk, pil başına ≈ 30 GB. Uçuş öncesi kontrol listesinde **< 15 GB boş alan → uyarı** (§6.1).
+
+### 11.3 Kayıt sırasında fotoğraf: kare işareti
+
+Mini 4 Pro'nun video kaydederken tam çözünürlüklü fotoğraf çekemediği varsayılır _(test edilecek)_.
+
+- **Kayıt yokken:** Fotoğraf jesti normal 12 MP fotoğraf çeker (3 sn geri sayımla).
+- **Kayıt sürerken:** Kayıt durmaz. Geri sayımın sonunda o an **işaretlenir** ("Kare işaretlendi").
+  Oturum sonunda işaretli anlardan **4K kareler (8 MP)** çıkarılır.
+
+### 11.4 Kayıt başlatma
+
+- **Otomatik kayıt kapalı.** Kayıt yalnızca kayıt jestiyle (iki el başın üstünde, §5.4) başlar ve durur.
+- İniş yapılırken kayıt sürüyorsa kayıt otomatik durdurulur ve dosya güvenle kapatılır.
+- Her kayıt ayrı bir dosyadır. Dosyalar drone'un SD kartında kalır, oturum özetinde (§6.4) sayısı bildirilir.
+
 ---
 
-## 11. Geliştirme ve Test Yol Haritası
+## 12. Geliştirme ve Test Yol Haritası
 
 Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projenin yolunu belirler.**
 
@@ -596,7 +642,7 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 
 ---
 
-## 12. Riskler
+## 13. Riskler
 
 | Risk | Etki | Önlem |
 |---|---|---|
@@ -616,7 +662,7 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 
 ---
 
-## 13. Açık Sorular
+## 14. Açık Sorular
 
 - [x] ~~Varsayılan takip mesafesi / irtifa / açı ve min.-maks. sınırlar~~ (bkz. §5.5)
 - [x] ~~İniş, kayıt başlat/durdur, fotoğraf ve orbit için jest atamaları~~ (bkz. §5.4)
@@ -628,7 +674,7 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 - [x] ~~Rüzgâr ve kalabalık durumlarında davranış~~ (bkz. §8.8, §8.9)
 - [x] ~~Kalkış ve oturum başlatma akışı~~ (bkz. §6)
 - [x] ~~Sinyal kaybında davranış~~ (bkz. §8.11)
-- [ ] Kayıt ayarları (çözünürlük, FPS, fotoğraf formatı)
+- [x] ~~Kayıt ayarları~~ (bkz. §11)
 
 ### Test ile doğrulanacaklar
 
@@ -644,10 +690,13 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 - [ ] Ev noktası kullanıcıdan ~5 m ofsetli bir koordinata ayarlanabiliyor mu? (§8.11)
 - [ ] Virtual Stick komutları kesilince drone ne kadar sürede havada duruyor? (§8.11)
 - [ ] RTH sırasında bağlantı geri gelince uygulama RTH'yi iptal edebiliyor mu? (§8.11)
+- [ ] D-Log M'de canlı görüntüde kişi tespiti yeterli mi? (§11.1)
+- [ ] 4K/100'de canlı görüntü değişiyor mu? (§11.1)
+- [ ] Video kaydederken fotoğraf çekilebiliyor mu? (§11.3)
 
 ---
 
-## 14. Karar Günlüğü
+## 15. Karar Günlüğü
 
 | Tarih | Karar |
 |---|---|
@@ -683,10 +732,13 @@ Her aşama bir öncekinin başarısına bağlıdır. **Aşama 1'in sonucu projen
 | 2026-10-03 | Video koparsa havada kal (X görülemez). Telefon-kumanda koparsa havada kal. |
 | 2026-10-03 | Bağlantı geri gelince takip için **Y beklenir** |
 | 2026-10-03 | Dakikada bir **"hayattayım" tık sesi** |
+| 2026-10-05 | Kayıt profili: **4K/60, H.265, Normal renk, yatay, 1x**. Fotoğraf: **12 MP JPEG** |
+| 2026-10-05 | Kayıt sırasında fotoğraf jesti → **kare işareti**, oturum sonunda 4K kare çıkarılır |
+| 2026-10-05 | **Otomatik kayıt kapalı**, kayıt jestle başlar/durur |
 
 ---
 
-## 15. Kaynaklar
+## 16. Kaynaklar
 
 - [DJI MSDK: IVirtualStickManager](https://developer.dji.com/api-reference-v5/android-api/Components/IVirtualStickManager/IVirtualStickManager.html)
 - [DJI Mobile SDK dokümantasyonu](https://developer.dji.com/doc/mobile-sdk-tutorial/en/)
